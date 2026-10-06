@@ -37,6 +37,47 @@ func writeErr(w http.ResponseWriter, status int, code, msg string) {
 	})
 }
 
+// ModelInfo 模型展示信息（倍率与上下文为相对参考值）。
+type ModelInfo struct {
+	ID      string  `json:"id"`
+	Ratio   float64 `json:"ratio"`   // 计费倍率（相对基准 1×）
+	Context int     `json:"context"` // 上下文窗口（tokens）
+}
+
+// defaultModelInfos 内置模型展示表；env MODELS 追加的项按 1×/128K 处理。
+var defaultModelInfos = map[string]ModelInfo{
+	"auto":             {ID: "auto", Ratio: 1, Context: 1000000},
+	"glm-5.3":          {ID: "glm-5.3", Ratio: 1, Context: 128000},
+	"glm-5.2":          {ID: "glm-5.2", Ratio: 1, Context: 128000},
+	"deepseek-v4-pro":  {ID: "deepseek-v4-pro", Ratio: 1, Context: 128000},
+	"kimi-k3":          {ID: "kimi-k3", Ratio: 1, Context: 256000},
+	"doubao-seed-code": {ID: "doubao-seed-code", Ratio: 1, Context: 128000},
+}
+
+// ModelInfos 返回完整模型展示表（内置 + env 追加）。
+func (s *Service) ModelInfos() []ModelInfo {
+	seen := map[string]bool{}
+	out := make([]ModelInfo, 0, len(s.Models))
+	for _, id := range s.Models {
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		if mi, ok := defaultModelInfos[id]; ok {
+			out = append(out, mi)
+		} else {
+			out = append(out, ModelInfo{ID: id, Ratio: 1, Context: 128000})
+		}
+	}
+	return out
+}
+
+// HandleModelsInfo GET /api/models —— 控制台模型列表（含倍率与上下文）。
+func (s *Service) HandleModelsInfo(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"models": s.ModelInfos()})
+}
+
 // HandleModels GET /v1/models
 func (s *Service) HandleModels(w http.ResponseWriter, r *http.Request) {
 	models := s.Models

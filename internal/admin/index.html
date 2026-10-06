@@ -8,10 +8,13 @@
 :root{--bg:#f6f7f9;--card:#fff;--fg:#1c2430;--muted:#6b7686;--line:#e3e7ee;--pri:#2563eb;--ok:#16a34a;--bad:#dc2626;--warn:#d97706}
 *{box-sizing:border-box;margin:0}
 body{font:14px/1.6 system-ui,"Segoe UI","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--fg);display:flex;min-height:100vh}
-nav{width:180px;background:var(--card);border-right:1px solid var(--line);padding:16px 0;flex-shrink:0}
-nav .logo{font-weight:700;padding:0 20px 14px;border-bottom:1px solid var(--line);margin-bottom:8px}
+nav{width:180px;background:var(--card);border-right:1px solid var(--line);padding:16px 0 12px;flex-shrink:0;display:flex;flex-direction:column}
+nav .logo{font-weight:700;padding:0 20px 14px;border-bottom:1px solid var(--line);margin-bottom:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 nav a{display:block;padding:10px 20px;color:var(--muted);text-decoration:none;cursor:pointer}
 nav a.on{color:var(--pri);background:#eef2ff;border-right:2px solid var(--pri)}
+.nav-bottom{margin-top:auto;border-top:1px solid var(--line);padding-top:6px}
+.nav-bottom a{padding:7px 20px;font-size:13px}
+.footer{padding:10px 20px 4px;font-size:11px;color:var(--muted);line-height:1.7}
 main{flex:1;padding:24px;max-width:1080px}
 h2{font-size:18px;margin-bottom:14px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:18px}
@@ -40,12 +43,23 @@ label.lbl{font-size:13px;color:var(--muted);display:block;margin:8px 0 4px}
 </head>
 <body>
 <nav>
-  <div class="logo">trae-relay</div>
+  <div class="logo">trae-relay <span id="upd-badge" class="badge b-warn" style="display:none;cursor:pointer" onclick="document.querySelector('[data-tab=update]').click()">⬆ 可更新</span></div>
   <a data-tab="overview" class="on">📊 概览</a>
   <a data-tab="accounts">👥 账号池</a>
   <a data-tab="records">🧾 消费记录</a>
   <a data-tab="settings">⚙️ 设置</a>
   <a data-tab="update">🔄 更新</a>
+  <div class="nav-bottom">
+    <a href="https://qm.qq.com/q/xHtxPNo5qM" target="_blank" rel="noopener">💬 交流群 539858079</a>
+    <a href="https://github.com/wangct233-source" target="_blank" rel="noopener">🐙 作者主页</a>
+    <a onclick="showTip()">💝 打赏作者</a>
+  </div>
+  <div class="footer">
+    <div>© 2026 · 智云-wangct233</div>
+    <div>当前版本 <span id="ft-ver">-</span></div>
+    <div>· MIT · 完全开源免费</div>
+    <div style="color:#d97706">收费的都是骗子</div>
+  </div>
 </nav>
 <main>
   <!-- 概览 -->
@@ -54,6 +68,9 @@ label.lbl{font-size:13px;color:var(--muted);display:block;margin:8px 0 4px}
     <div class="stats" id="ov-stats"></div>
     <div class="card"><h3 style="font-size:14px;margin-bottom:10px">每日用量（近 7 天）</h3>
       <table id="ov-daily"><thead><tr><th>日期</th><th>请求</th><th>失败</th><th>输入</th><th>输出</th><th>积分</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="card"><h3 style="font-size:14px;margin-bottom:10px">模型列表（倍率 / 上下文）</h3>
+      <table id="ov-models"><thead><tr><th>模型</th><th>倍率</th><th>上下文</th></tr></thead><tbody></tbody></table>
     </div>
     <div class="card"><h3 style="font-size:14px;margin-bottom:10px">签到调度</h3><div id="ov-checkin" class="muted">-</div></div>
   </section>
@@ -147,6 +164,16 @@ label.lbl{font-size:13px;color:var(--muted);display:block;margin:8px 0 4px}
   </section>
 </main>
 <div id="toast"></div>
+<div id="tip-mask" style="position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;z-index:98" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:var(--card);border-radius:12px;padding:22px;max-width:560px;width:92%">
+    <h3 style="margin-bottom:4px">💝 打赏作者</h3>
+    <p class="muted" style="font-size:12px;margin-bottom:12px">项目完全开源免费，你的打赏是更新的动力～ 微信赞赏 / 支付宝扫码</p>
+    <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
+      <figure style="text-align:center"><img src="/assets/tip-wechat.jpg" alt="微信赞赏码" style="width:220px;border-radius:8px;border:1px solid var(--line)"><figcaption class="muted" style="font-size:12px">微信赞赏码</figcaption></figure>
+      <figure style="text-align:center"><img src="/assets/tip-alipay.jpg" alt="支付宝收款码" style="width:220px;border-radius:8px;border:1px solid var(--line)"><figcaption class="muted" style="font-size:12px">支付宝</figcaption></figure>
+    </div>
+  </div>
+</div>
 <div id="login-mask" style="position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;z-index:99">
   <div style="background:var(--card);border-radius:12px;padding:26px;width:320px">
     <h3 style="margin-bottom:6px">控制台登录</h3>
@@ -188,13 +215,28 @@ async function tryAutoLogin(){
   }catch(e){/* 网络异常时静默，各页签加载会再报错 */}
 }
 tryAutoLogin();
+checkUpdateBadge();
+setInterval(checkUpdateBadge, 600000); // 每 10 分钟自动检测更新
 document.querySelectorAll('nav a').forEach(a=>a.onclick=()=>{
   document.querySelectorAll('nav a').forEach(x=>x.classList.remove('on'));a.classList.add('on');
   document.querySelectorAll('main section').forEach(s=>s.classList.add('hidden'));
   $('#tab-'+a.dataset.tab).classList.remove('hidden');
   ({overview:loadOverview,accounts:loadAccounts,records:loadRecords,settings:loadSettings,update:loadUpdate})[a.dataset.tab]?.();
 });
-function fmt(n){return n==null?'--':Number(n).toFixed(2)}
+function fmt(n){if(n==null||n===undefined||Number.isNaN(Number(n)))return'--';const v=Number(n);return Number.isFinite(v)?v.toFixed(2):'--'}
+function rint(n){const v=Number(n);return Number.isFinite(v)?Math.round(v):0}
+function showTip(){$('#tip-mask').style.display='flex'}
+async function checkUpdateBadge(){
+  try{
+    const st=await fetch('/v1/status').then(r=>r.json());
+    $('#ft-ver').textContent=st.version||'-';
+    if(!AUTH)return; // 未登录时不探测更新
+    const d=await api('/api/update/check');
+    const has=d.tag&&d.current&&d.tag!==d.current;
+    $('#upd-badge').style.display=has?'inline-block':'none';
+    if(has)$('#upd-badge').textContent='⬆ '+d.tag;
+  }catch(e){}
+}
 function ts(t){return t?new Date(t*1000).toLocaleString('zh-CN'):'-'}
 
 async function loadOverview(){
@@ -202,18 +244,25 @@ async function loadOverview(){
     const d=await api('/api/overview?days=7');
     const cr=d.credits_unlimited?'无限':fmt(d.credits);
     $('#ov-stats').innerHTML=[
-      ['账号',`${d.accounts_enabled}/${d.accounts_total}`],
+      ['账号',`${rint(d.accounts_enabled)}/${rint(d.accounts_total)}`],
       ['可用积分',cr],
-      ['总请求',d.total.requests],
-      ['总输入 tokens',Math.round(d.total.input)],
-      ['总输出 tokens',Math.round(d.total.output)],
+      ['总请求',rint(d.total.requests)],
+      ['总输入 tokens',rint(d.total.input)],
+      ['总输出 tokens',rint(d.total.output)],
       ['消耗积分',fmt(d.total.credits)],
     ].map(([k,v])=>`<div class="stat"><b>${v}</b><span>${k}</span></div>`).join('');
     $('#ov-daily tbody').innerHTML=(d.daily||[]).map(r=>`<tr>
-      <td>${r.Day}</td><td>${r.Data.requests}</td><td>${r.Data.failed}</td>
-      <td>${Math.round(r.Data.input)}</td><td>${Math.round(r.Data.output)}</td><td>${fmt(r.Data.credits)}</td></tr>`).join('')||'<tr><td colspan="6" class="muted">暂无数据</td></tr>';
+      <td>${r.day}</td><td>${rint(r.data.requests)}</td><td>${rint(r.data.failed)}</td>
+      <td>${rint(r.data.input)}</td><td>${rint(r.data.output)}</td><td>${fmt(r.data.credits)}</td></tr>`).join('')||'<tr><td colspan="6" class="muted">暂无数据</td></tr>';
+    try{
+      const m=await api('/api/models');
+      $('#ov-models tbody').innerHTML=(m.models||[]).map(x=>`<tr>
+        <td>${x.id}</td><td>${x.ratio}×</td><td>${x.context>=1000000?(x.context/1000000)+'M':Math.round(x.context/1000)+'K'}</td></tr>`).join('');
+    }catch(e){$('#ov-models tbody').innerHTML='<tr><td colspan="3" class="muted">模型列表加载失败</td></tr>'}
     const c=d.checkin||{};
-    $('#ov-checkin').innerHTML=`自动签到：${c.enabled?'开启':'关闭'} @ ${c.time}<br>上次执行：${c.last_run||'-'}（${c.last_auto||'-'}）<br>下次执行：${c.next_run||'-'}<br>退避待重试账号：${c.pending??0}`;
+    const lr=c.last_run&&!c.last_run.startsWith('0001')?c.last_run:'-';
+    const la=c.last_auto||'-';
+    $('#ov-checkin').innerHTML=`自动签到：${c.enabled?'开启':'关闭'} @ ${c.time}<br>上次执行：${lr}（${lr==='-'?'未执行':la}）<br>下次执行：${c.next_run||'-'}<br>退避待重试账号：${c.pending??0}`;
   }catch(e){toast('概览加载失败: '+e.message)}
 }
 async function loadAccounts(){

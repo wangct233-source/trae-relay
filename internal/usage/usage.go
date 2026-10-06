@@ -130,11 +130,14 @@ func (t *Tracker) Records(limit int) []Record {
 	return all
 }
 
+// DayRow 每日统计行。
+type DayRow struct {
+	Day  string    `json:"day"`
+	Data DayBucket `json:"data"`
+}
+
 // Overview 返回最近 days 天的每日统计（按日期倒序）与汇总。
-func (t *Tracker) Overview(days int) ([]struct {
-	Day  string
-	Data DayBucket
-}, DayBucket) {
+func (t *Tracker) Overview(days int) ([]DayRow, DayBucket) {
 	stats := t.file.Get().Stats
 	keys := make([]string, 0, len(stats))
 	for k := range stats {
@@ -144,17 +147,11 @@ func (t *Tracker) Overview(days int) ([]struct {
 	if days > 0 && len(keys) > days {
 		keys = keys[:days]
 	}
-	out := make([]struct {
-		Day  string
-		Data DayBucket
-	}, 0, len(keys))
+	out := make([]DayRow, 0, len(keys))
 	var total DayBucket
 	for _, k := range keys {
 		b := stats[k]
-		out = append(out, struct {
-			Day  string
-			Data DayBucket
-		}{k, b})
+		out = append(out, DayRow{Day: k, Data: b})
 		total.Requests += b.Requests
 		total.Failed += b.Failed
 		total.Input += b.Input

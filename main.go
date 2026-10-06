@@ -99,6 +99,8 @@ func main() {
 	mux.HandleFunc("/web/login", webAuth.HandleLoginPage)
 	mux.HandleFunc("/web/login/download", webAuth.HandleLoginDownload)
 	mux.Handle("POST /api/web-auth", http.HandlerFunc(webAuth.HandleWebAuth))
+	mux.HandleFunc("GET /api/models", svc.HandleModelsInfo)
+	mux.Handle("GET /assets/{name}", http.HandlerFunc(admin.Asset))
 	mux.Handle("/api/", admin.Auth(cfg.AdminPassword, adminMux))
 	mux.HandleFunc("/admin", admin.Page)
 
