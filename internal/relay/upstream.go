@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 )
@@ -99,6 +100,15 @@ func headers(token string, stream bool) map[string]string {
 		h["Accept"] = "application/json"
 	}
 	return h
+}
+
+// GatewayBase 从 remote base 提取模型网关（scheme://host）。
+// 例：https://trae-api-cn.mchost.guru/api/remote/v1 → https://trae-api-cn.mchost.guru
+func (u *Upstream) GatewayBase() string {
+	if parsed, err := url.Parse(u.BaseURL); err == nil && parsed.Host != "" {
+		return parsed.Scheme + "://" + parsed.Host
+	}
+	return u.BaseURL
 }
 
 // StableSessionID 每账号+模型一个稳定会话键（对照上游 biz_session_id 行为）。

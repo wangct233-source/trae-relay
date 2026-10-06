@@ -43,16 +43,15 @@ label.lbl{font-size:13px;color:var(--muted);display:block;margin:8px 0 4px}
 </head>
 <body>
 <nav>
-  <div class="logo">trae-relay <span id="upd-badge" class="badge b-warn" style="display:none;cursor:pointer" onclick="document.querySelector('[data-tab=update]').click()">⬆ 可更新</span></div>
+  <div class="logo">trae-relay <span id="upd-badge" class="badge b-warn" style="display:none;cursor:pointer" onclick="openUpdModal()">⬆ 可更新</span></div>
   <a data-tab="overview" class="on">📊 概览</a>
   <a data-tab="accounts">👥 账号池</a>
   <a data-tab="records">🧾 消费记录</a>
   <a data-tab="settings">⚙️ 设置</a>
-  <a data-tab="update">🔄 更新</a>
   <div class="nav-bottom">
     <a href="https://qm.qq.com/q/xHtxPNo5qM" target="_blank" rel="noopener">💬 交流群 539858079</a>
     <a href="https://github.com/wangct233-source" target="_blank" rel="noopener">🐙 作者主页</a>
-    <a onclick="showTip()">💝 打赏作者</a>
+    <a href="javascript:void(0)" onclick="showTip()">💝 打赏作者</a>
   </div>
   <div class="footer">
     <div>© 2026 · 智云-wangct233</div>
@@ -69,7 +68,7 @@ label.lbl{font-size:13px;color:var(--muted);display:block;margin:8px 0 4px}
     <div class="card"><h3 style="font-size:14px;margin-bottom:10px">每日用量（近 7 天）</h3>
       <table id="ov-daily"><thead><tr><th>日期</th><th>请求</th><th>失败</th><th>输入</th><th>输出</th><th>积分</th></tr></thead><tbody></tbody></table>
     </div>
-    <div class="card"><h3 style="font-size:14px;margin-bottom:10px">模型列表（倍率 / 上下文）</h3>
+    <div class="card" id="ov-models-card" style="display:none"><h3 style="font-size:14px;margin-bottom:10px">模型列表（倍率 / 上下文，按账号自动检测）</h3>
       <table id="ov-models"><thead><tr><th>模型</th><th>倍率</th><th>上下文</th></tr></thead><tbody></tbody></table>
     </div>
     <div class="card"><h3 style="font-size:14px;margin-bottom:10px">签到调度</h3><div id="ov-checkin" class="muted">-</div></div>
@@ -146,22 +145,26 @@ label.lbl{font-size:13px;color:var(--muted);display:block;margin:8px 0 4px}
       </div>
       <label class="lbl">自动热更新</label>
       <select id="st-update" style="width:100px"><option value="1">开启</option><option value="0">关闭</option></select>
-      <div class="row" style="margin-top:14px"><button class="btn pri" onclick="saveSettings()">保存设置</button></div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn pri" onclick="saveSettings()">保存设置</button>
+        <button class="btn" onclick="openUpdModal()">🔄 检查更新</button>
+      </div>
     </div>
   </section>
 
-  <!-- 更新 -->
-  <section id="tab-update" class="hidden">
-    <h2>热更新</h2>
-    <div class="card">
-      <div id="upd-info" class="muted">加载中…</div>
+  <!-- 更新模态 -->
+  <div id="upd-modal" style="position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;z-index:98" onclick="if(event.target===this)closeUpdModal()">
+    <div style="background:var(--card);border-radius:12px;padding:22px;max-width:420px;width:92%">
+      <h3 style="margin-bottom:4px">🔄 软件更新</h3>
+      <div id="upd-info" class="muted" style="margin:10px 0">点击「检查更新」查询 GitHub 最新版本</div>
       <div class="row" style="margin-top:12px">
         <button class="btn" onclick="checkUpdate()">检查更新</button>
-        <button class="btn pri" onclick="applyUpdate()">下载并升级</button>
+        <button class="btn pri" id="upd-apply-btn" onclick="applyUpdate()">下载并升级</button>
+        <button class="btn" onclick="closeUpdModal()">关闭</button>
       </div>
-      <p class="muted" style="font-size:12px;margin-top:8px">升级会从 GitHub Releases 拉取预编译二进制并自动重启服务；Docker 部署请把 BIN_DIR 挂载为卷，重启容器后仍是新版本。</p>
+      <p class="muted" style="font-size:12px;margin-top:8px">升级从 GitHub Releases 拉取预编译二进制并自动重启服务；Docker 部署请把 BIN_DIR 挂载为卷。</p>
     </div>
-  </section>
+  </div>
 </main>
 <div id="toast"></div>
 <div id="tip-mask" style="position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;z-index:98" onclick="if(event.target===this)this.style.display='none'">
@@ -221,7 +224,7 @@ document.querySelectorAll('nav a').forEach(a=>a.onclick=()=>{
   document.querySelectorAll('nav a').forEach(x=>x.classList.remove('on'));a.classList.add('on');
   document.querySelectorAll('main section').forEach(s=>s.classList.add('hidden'));
   $('#tab-'+a.dataset.tab).classList.remove('hidden');
-  ({overview:loadOverview,accounts:loadAccounts,records:loadRecords,settings:loadSettings,update:loadUpdate})[a.dataset.tab]?.();
+  ({overview:loadOverview,accounts:loadAccounts,records:loadRecords,settings:loadSettings})[a.dataset.tab]?.();
 });
 function fmt(n){if(n==null||n===undefined||Number.isNaN(Number(n)))return'--';const v=Number(n);return Number.isFinite(v)?v.toFixed(2):'--'}
 function rint(n){const v=Number(n);return Number.isFinite(v)?Math.round(v):0}
@@ -256,9 +259,12 @@ async function loadOverview(){
       <td>${rint(r.data.input)}</td><td>${rint(r.data.output)}</td><td>${fmt(r.data.credits)}</td></tr>`).join('')||'<tr><td colspan="6" class="muted">暂无数据</td></tr>';
     try{
       const m=await api('/api/models');
-      $('#ov-models tbody').innerHTML=(m.models||[]).map(x=>`<tr>
-        <td>${x.id}</td><td>${x.ratio}×</td><td>${x.context>=1000000?(x.context/1000000)+'M':Math.round(x.context/1000)+'K'}</td></tr>`).join('');
-    }catch(e){$('#ov-models tbody').innerHTML='<tr><td colspan="3" class="muted">模型列表加载失败</td></tr>'}
+      if(m.models&&m.models.length){
+        $('#ov-models-card').style.display='';
+        $('#ov-models tbody').innerHTML=m.models.map(x=>`<tr>
+          <td>${x.id}</td><td>${x.ratio}×</td><td>${x.context>=1000000?(x.context/1000000)+'M':Math.round(x.context/1000)+'K'}</td></tr>`).join('');
+      }else{$('#ov-models-card').style.display='none'}
+    }catch(e){$('#ov-models-card').style.display='none'}
     const c=d.checkin||{};
     const lr=c.last_run&&!c.last_run.startsWith('0001')?c.last_run:'-';
     const la=c.last_auto||'-';
@@ -296,12 +302,13 @@ async function importJSON(){
     toast(`导入完成：新增 ${d.added}，更新 ${d.updated}`);$('#imp-json').value='';loadAccounts();
   }catch(e){toast('导入失败: '+e.message)}
 }
+function uuidv(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&3|8)).toString(16)})}
 function openAuthPage(){
   const cb='http://127.0.0.1:18080/authorize';
   const hex=n=>Array.from(crypto.getRandomValues(new Uint8Array(n)),b=>b.toString(16).padStart(2,'0')).join('');
   let did='';while(did.length<19)did+=Math.floor(Math.random()*1e10).toString();
   const p=new URLSearchParams({login_version:'1',auth_from:'solo',login_channel:'native_ide',plugin_version:'2.3.24254',
-    auth_type:'local',client_id:'ono9krqynydwx5',redirect:'0',login_trace_id:crypto.randomUUID(),
+    auth_type:'local',client_id:'ono9krqynydwx5',redirect:'0',login_trace_id:uuidv(),
     auth_callback_url:cb,machine_id:hex(32),device_id:did,x_device_id:did,x_machine_id:hex(32),
     x_device_brand:'Mac14,7',x_device_type:'mac',x_os_version:'macOS 26.4.1',x_env:'',
     x_app_version:'0.1.7',x_app_type:'stable',hide_saas_login:'true'});
@@ -347,16 +354,18 @@ async function saveSettings(){
     toast('已保存，即时生效');
   }catch(e){toast('保存失败: '+e.message)}
 }
-async function loadUpdate(){$('#upd-info').textContent='点击「检查更新」查询 GitHub 最新版本';}
+function openUpdModal(){$('#upd-modal').style.display='flex';$('#upd-info').textContent='点击「检查更新」查询 GitHub 最新版本'}
+function closeUpdModal(){$('#upd-modal').style.display='none'}
 async function checkUpdate(){
   try{const d=await api('/api/update/check');
-    $('#upd-info').innerHTML=`当前版本：<b>${d.current}</b>｜最新版本：<b>${d.tag||'-'}</b>${d.update?' <span class="badge b-warn">可更新</span>':' <span class="badge b-ok">已是最新</span>'}${d.asset?`<br>资产：${d.asset}（${(d.size/1048576).toFixed(1)} MB）`:''}`;
-  }catch(e){toast('检查失败: '+e.message)}
+    const has=d.tag&&d.current&&d.tag!==d.current;
+    $('#upd-info').innerHTML=`当前版本：<b>${d.current}</b>｜最新版本：<b>${d.tag||'-'}</b>${has?' <span class="badge b-warn">可更新</span>':' <span class="badge b-ok">已是最新</span>'}${d.asset?`<br>资产：${d.asset}（${(d.size/1048576).toFixed(1)} MB）`:''}`;
+  }catch(e){$('#upd-info').textContent='检查失败: '+e.message}
 }
 async function applyUpdate(){
   if(!confirm('下载并升级到最新版本？服务将自动重启。'))return;
   try{await api('/api/update/apply',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
-    toast('更新任务已启动，完成后自动重启…');
+    $('#upd-info').textContent='更新任务已启动，完成后自动重启…';
     const iv=setInterval(async()=>{try{const s=await api('/api/update/status');if(!s.applying){clearInterval(iv);location.reload()}}catch(e){clearInterval(iv);location.reload()}},2000);
   }catch(e){toast('更新失败: '+e.message)}
 }

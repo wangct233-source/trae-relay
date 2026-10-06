@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"trae-relay/internal/account"
@@ -54,15 +56,86 @@ var defaultModelInfos = map[string]ModelInfo{
 	"doubao-seed-code": {ID: "doubao-seed-code", Ratio: 1, Context: 128000},
 }
 
-// ModelInfos 返回完整模型展示表（内置 + env 追加）。
+// ModelInfos 根据账号池自动检测：无启用账号返回空（前端隐藏卡片）；
+// 有账号则用其 token 从上游 model_list 拉取真实模型（10 分钟缓存）。
 func (s *Service) ModelInfos() []ModelInfo {
+	// 找一个启用账号的 token
+	var token string
+	for _, a := range s.Pool.List() {
+		if a.Enabled && a.TokenValid() {
+			token = a.Token
+			break
+		}
+	}
+	if token == "" {
+		return nil
+	}
+	if cached, ok := modelCache.get(); ok {
+		return cached
+	}
+	items := s.fetchUpstreamModels(token)
+	modelCache.set(items)
+	return items
+}
+
+// fetchUpstreamModels 调上游 /api/ide/v1/model_list?type=chat。
+func (s *Service) fetchUpstreamModels(token string) []ModelInfo {
+	gateway := s.Up.GatewayBase()
+	req, err := http.NewRequestWithContext(context.Background(), "GET",
+		gateway+"/api/ide/v1/model_list?type=chat", nil)
+	if err != nil {
+		return s.fallbackModels()
+	}
+	req.Header.Set("Authorization", "Cloud-IDE-JWT "+token)
+	req.Header.Set("Accept", "application/json")
+	resp, err := s.Up.HTTP.Do(req)
+	if err != nil {
+		return s.fallbackModels()
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return s.fallbackModels()
+	}
+	var data struct {
+		ModelConfigs []struct {
+			Name          string `json:"name"`
+			DisplayName   string `json:"display_name"`
+			DisplayModel  string `json:"display_model_name"`
+			ContextLength int    `json:"context_length"`
+		} `json:"model_configs"`
+	}
+	if json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(&data) != nil {
+		return s.fallbackModels()
+	}
+	out := make([]ModelInfo, 0, len(data.ModelConfigs))
 	seen := map[string]bool{}
-	out := make([]ModelInfo, 0, len(s.Models))
-	for _, id := range s.Models {
-		if seen[id] {
+	for _, mc := range data.ModelConfigs {
+		name := mc.Name
+		if name == "aws_sdk_claude37_sonnet" {
+			name = "claude-3-7-sonnet"
+		} else if name == "claude3.5" {
+			name = "claude-3-5-sonnet"
+		}
+		if name == "" || seen[name] {
 			continue
 		}
-		seen[id] = true
+		seen[name] = true
+		ctx := mc.ContextLength
+		if ctx <= 0 {
+			ctx = 128000
+		}
+		out = append(out, ModelInfo{ID: name, Ratio: 1, Context: ctx})
+	}
+	if len(out) == 0 {
+		return s.fallbackModels()
+	}
+	return out
+}
+
+// fallbackModels 上游检测失败时回退内置表。
+func (s *Service) fallbackModels() []ModelInfo {
+	out := make([]ModelInfo, 0, len(s.Models))
+	for _, id := range s.Models {
 		if mi, ok := defaultModelInfos[id]; ok {
 			out = append(out, mi)
 		} else {
@@ -70,6 +143,32 @@ func (s *Service) ModelInfos() []ModelInfo {
 		}
 	}
 	return out
+}
+
+// modelCache 进程内 10 分钟缓存。
+var modelCache = struct {
+	mu      sync.Mutex
+	data    []ModelInfo
+	expires time.Time
+	get     func() ([]ModelInfo, bool)
+	set     func([]ModelInfo)
+}{}
+
+func init() {
+	modelCache.get = func() ([]ModelInfo, bool) {
+		modelCache.mu.Lock()
+		defer modelCache.mu.Unlock()
+		if time.Now().Before(modelCache.expires) {
+			return modelCache.data, true
+		}
+		return nil, false
+	}
+	modelCache.set = func(items []ModelInfo) {
+		modelCache.mu.Lock()
+		defer modelCache.mu.Unlock()
+		modelCache.data = items
+		modelCache.expires = time.Now().Add(10 * time.Minute)
+	}
 }
 
 // HandleModelsInfo GET /api/models —— 控制台模型列表（含倍率与上下文）。
