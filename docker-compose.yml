@@ -1,0 +1,20 @@
+services:
+  trae-relay:
+    image: ghcr.io/wangct233-source/trae-relay:latest   # 预构建镜像，替换为你的 GHCR 路径；本地构建改 build: .
+    # build: .
+    container_name: trae-relay
+    restart: unless-stopped
+    ports:
+      - "8080:8080"            # 公网部署建议改 "127.0.0.1:8080:8080" 并用 nginx 反代
+    environment:
+      API_KEYS: ""             # 对话 API 密钥，逗号分隔；公网部署必须设置
+      ADMIN_PASSWORD: ""       # 控制台密码；公网部署必须设置
+      SCHEDULING: round-robin  # round-robin | credit（可在控制台改）
+      AUTO_CHECKIN: "1"
+      CHECKIN_TIME: "08:30"
+      AUTO_UPDATE: "0"         # 开启后自动从 GitHub Releases 热更新
+      UPDATE_REPO: wangct233-source/trae-relay  # 热更新来源；GitHub 仓库
+      TZ: Asia/Shanghai
+    volumes:
+      - ./data:/app/data       # 账号/记录/设置
+      - ./bin:/app/bin         # 二进制目录：热更新替换的载体

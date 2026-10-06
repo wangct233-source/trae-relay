@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>trae-relay 控制台</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--fg:#1c2430;--muted:#6b7686;--line:#e3e7ee;--pri:#2563eb;--ok:#16a34a;--bad:#dc2626;--warn:#d97706}
+*{box-sizing:border-box;margin:0}
+body{font:14px/1.6 system-ui,"Segoe UI","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--fg);display:flex;min-height:100vh}
+nav{width:180px;background:var(--card);border-right:1px solid var(--line);padding:16px 0;flex-shrink:0}
+nav .logo{font-weight:700;padding:0 20px 14px;border-bottom:1px solid var(--line);margin-bottom:8px}
+nav a{display:block;padding:10px 20px;color:var(--muted);text-decoration:none;cursor:pointer}
+nav a.on{color:var(--pri);background:#eef2ff;border-right:2px solid var(--pri)}
+main{flex:1;padding:24px;max-width:1080px}
+h2{font-size:18px;margin-bottom:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:18px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+.stat b{font-size:20px;display:block}
+.stat span{color:var(--muted);font-size:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-weight:600}
+.badge{display:inline-block;padding:1px 8px;border-radius:99px;font-size:12px}
+.b-ok{background:#dcfce7;color:var(--ok)}.b-bad{background:#fee2e2;color:var(--bad)}.b-mute{background:#e5e7eb;color:var(--muted)}.b-warn{background:#fef3c7;color:var(--warn)}
+.btn{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px}
+.btn:hover{border-color:var(--pri);color:var(--pri)}
+.btn.pri{background:var(--pri);border-color:var(--pri);color:#fff}
+.btn.sm{padding:2px 8px;font-size:12px}
+textarea,input,select{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit;background:var(--card)}
+textarea{min-height:110px;resize:vertical}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+label.lbl{font-size:13px;color:var(--muted);display:block;margin:8px 0 4px}
+#toast{position:fixed;top:16px;right:16px;background:#111827;color:#fff;padding:10px 16px;border-radius:8px;opacity:0;transition:.3s;pointer-events:none;max-width:360px}
+#toast.show{opacity:1}
+.muted{color:var(--muted)}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<nav>
+  <div class="logo">trae-relay</div>
+  <a data-tab="overview" class="on">📊 概览</a>
+  <a data-tab="accounts">👥 账号池</a>
+  <a data-tab="records">🧾 消费记录</a>
+  <a data-tab="settings">⚙️ 设置</a>
+  <a data-tab="update">🔄 更新</a>
+</nav>
+<main>
+  <!-- 概览 -->
+  <section id="tab-overview">
+    <h2>概览</h2>
+    <div class="stats" id="ov-stats"></div>
+    <div class="card"><h3 style="font-size:14px;margin-bottom:10px">每日用量（近 7 天）</h3>
+      <table id="ov-daily"><thead><tr><th>日期</th><th>请求</th><th>失败</th><th>输入</th><th>输出</th><th>积分</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="card"><h3 style="font-size:14px;margin-bottom:10px">签到调度</h3><div id="ov-checkin" class="muted">-</div></div>
+  </section>
+
+  <!-- 账号 -->
+  <section id="tab-accounts" class="hidden">
+    <h2>账号池</h2>
+    <div class="card">
+      <div class="row">
+        <button class="btn pri" onclick="checkinAll()">一键签到全部</button>
+        <button class="btn" onclick="loadAccounts()">刷新</button>
+        <span class="muted" id="acc-count"></span>
+      </div>
+      <table id="acc-table" style="margin-top:12px"><thead>
+        <tr><th>账号</th><th>状态</th><th>积分</th><th>上次签到</th><th>冷却至</th><th>操作</th></tr>
+      </thead><tbody></tbody></table>
+    </div>
+    <div class="card">
+      <h3 style="font-size:14px">JSON 批量导入</h3>
+      <p class="muted" style="font-size:12px">支持对象或数组。字段：token/accessToken、refresh_token、user_id、label、enabled</p>
+      <textarea id="imp-json" placeholder='[{"token":"eyJ...","refresh_token":"...","label":"主号"}]'></textarea>
+      <div class="row" style="margin-top:8px"><button class="btn pri" onclick="importJSON()">导入</button></div>
+    </div>
+    <div class="card">
+      <h3 style="font-size:14px">账号密码登录导入 <span class="badge b-warn">实验性</span></h3>
+      <div class="row">
+        <input id="lg-phone" placeholder="手机号/账号" style="width:220px">
+        <input id="lg-pass" type="password" placeholder="密码" style="width:220px">
+        <button class="btn pri" onclick="loginImport()">登录并导入</button>
+      </div>
+      <p class="muted" style="font-size:12px;margin-top:6px">端点未公开文档化，可用环境变量 TRAE_LOGIN_PATH 适配；失败时建议改用 JSON 导入 refresh_token。</p>
+    </div>
+  </section>
+
+  <!-- 记录 -->
+  <section id="tab-records" class="hidden">
+    <h2>消费记录</h2>
+    <div class="card">
+      <div class="row"><button class="btn" onclick="loadRecords()">刷新</button><span class="muted">最近 100 条</span></div>
+      <table style="margin-top:12px"><thead><tr>
+        <th>时间</th><th>模型</th><th>账号</th><th>输入</th><th>输出</th><th>积分</th><th>状态</th><th>耗时</th>
+      </tr></thead><tbody id="rec-body"></tbody></table>
+    </div>
+  </section>
+
+  <!-- 设置 -->
+  <section id="tab-settings" class="hidden">
+    <h2>设置</h2>
+    <div class="card">
+      <label class="lbl">负载调度模式</label>
+      <select id="st-sched"><option value="round-robin">顺序轮询</option><option value="credit">积分优先</option></select>
+      <label class="lbl">每日自动签到</label>
+      <div class="row">
+        <select id="st-checkin" style="width:100px"><option value="1">开启</option><option value="0">关闭</option></select>
+        <input id="st-ctime" style="width:120px" placeholder="08:30">
+      </div>
+      <label class="lbl">自动热更新</label>
+      <select id="st-update" style="width:100px"><option value="1">开启</option><option value="0">关闭</option></select>
+      <div class="row" style="margin-top:14px"><button class="btn pri" onclick="saveSettings()">保存设置</button></div>
+    </div>
+  </section>
+
+  <!-- 更新 -->
+  <section id="tab-update" class="hidden">
+    <h2>热更新</h2>
+    <div class="card">
+      <div id="upd-info" class="muted">加载中…</div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn" onclick="checkUpdate()">检查更新</button>
+        <button class="btn pri" onclick="applyUpdate()">下载并升级</button>
+      </div>
+      <p class="muted" style="font-size:12px;margin-top:8px">升级会从 GitHub Releases 拉取预编译二进制并自动重启服务；Docker 部署请把 BIN_DIR 挂载为卷，重启容器后仍是新版本。</p>
+    </div>
+  </section>
+</main>
+<div id="toast"></div>
+<div id="login-mask" style="position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;z-index:99">
+  <div style="background:var(--card);border-radius:12px;padding:26px;width:320px">
+    <h3 style="margin-bottom:6px">控制台登录</h3>
+    <p class="muted" style="font-size:12px;margin-bottom:10px">输入 ADMIN_PASSWORD（未设置密码的服务器无需登录）</p>
+    <input id="login-pw" type="password" placeholder="管理密码" onkeydown="if(event.key==='Enter')doLogin()">
+    <div class="row" style="margin-top:12px">
+      <button class="btn pri" style="flex:1" onclick="doLogin()">登录</button>
+    </div>
+    <p id="login-err" style="color:var(--bad);font-size:12px;margin-top:8px"></p>
+  </div>
+</div>
+<script>
+const $=s=>document.querySelector(s);
+let AUTH=localStorage.getItem('tr_admin_pw')||'';
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}
+async function api(path,opt){
+  opt=opt||{};opt.headers=Object.assign({},opt.headers);
+  if(AUTH)opt.headers['Authorization']='Bearer '+AUTH;
+  const r=await fetch(path,opt);
+  if(r.status===401){showLogin();throw new Error('需要登录')}
+  const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||('HTTP '+r.status));return d
+}
+function showLogin(){$('#login-mask').style.display='flex';setTimeout(()=>$('#login-pw').focus(),50)}
+async function doLogin(){
+  AUTH=$('#login-pw').value;
+  try{await fetch('/api/settings',{headers:{'Authorization':'Bearer '+AUTH}}).then(r=>{
+    if(r.status===401){$('#login-err').textContent='密码错误';return}
+    if(!r.ok){$('#login-err').textContent='HTTP '+r.status;return}
+    localStorage.setItem('tr_admin_pw',AUTH);
+    $('#login-mask').style.display='none';$('#login-err').textContent='';
+    toast('登录成功');loadOverview();
+  })}catch(e){$('#login-err').textContent='网络错误: '+e.message}
+}
+async function tryAutoLogin(){
+  if(!AUTH){showLogin();return}
+  try{
+    const r=await fetch('/api/settings',{headers:{'Authorization':'Bearer '+AUTH}});
+    if(r.status===401){showLogin()}
+  }catch(e){/* 网络异常时静默，各页签加载会再报错 */}
+}
+tryAutoLogin();
+document.querySelectorAll('nav a').forEach(a=>a.onclick=()=>{
+  document.querySelectorAll('nav a').forEach(x=>x.classList.remove('on'));a.classList.add('on');
+  document.querySelectorAll('main section').forEach(s=>s.classList.add('hidden'));
+  $('#tab-'+a.dataset.tab).classList.remove('hidden');
+  ({overview:loadOverview,accounts:loadAccounts,records:loadRecords,settings:loadSettings,update:loadUpdate})[a.dataset.tab]?.();
+});
+function fmt(n){return n==null?'--':Number(n).toFixed(2)}
+function ts(t){return t?new Date(t*1000).toLocaleString('zh-CN'):'-'}
+
+async function loadOverview(){
+  try{
+    const d=await api('/api/overview?days=7');
+    const cr=d.credits_unlimited?'无限':fmt(d.credits);
+    $('#ov-stats').innerHTML=[
+      ['账号',`${d.accounts_enabled}/${d.accounts_total}`],
+      ['可用积分',cr],
+      ['总请求',d.total.requests],
+      ['总输入 tokens',Math.round(d.total.input)],
+      ['总输出 tokens',Math.round(d.total.output)],
+      ['消耗积分',fmt(d.total.credits)],
+    ].map(([k,v])=>`<div class="stat"><b>${v}</b><span>${k}</span></div>`).join('');
+    $('#ov-daily tbody').innerHTML=(d.daily||[]).map(r=>`<tr>
+      <td>${r.Day}</td><td>${r.Data.requests}</td><td>${r.Data.failed}</td>
+      <td>${Math.round(r.Data.input)}</td><td>${Math.round(r.Data.output)}</td><td>${fmt(r.Data.credits)}</td></tr>`).join('')||'<tr><td colspan="6" class="muted">暂无数据</td></tr>';
+    const c=d.checkin||{};
+    $('#ov-checkin').innerHTML=`自动签到：${c.enabled?'开启':'关闭'} @ ${c.time}<br>上次执行：${c.last_run||'-'}（${c.last_auto||'-'}）<br>下次执行：${c.next_run||'-'}<br>退避待重试账号：${c.pending??0}`;
+  }catch(e){toast('概览加载失败: '+e.message)}
+}
+async function loadAccounts(){
+  try{
+    const d=await api('/api/accounts');
+    $('#acc-count').textContent=`启用 ${d.accounts.filter(a=>a.enabled).length}/${d.accounts.length}`;
+    $('#acc-table tbody').innerHTML=d.accounts.map(a=>{
+      const st=a.enabled?(Date.now()/1000<a.cooldown_until?'<span class="badge b-warn">冷却中</span>':'<span class="badge b-ok">正常</span>'):'<span class="badge b-mute">已禁用</span>';
+      const cr=a.credits_unlimited?'∞':(a.credits_remaining!=null?fmt(a.credits_remaining):'--');
+      return `<tr>
+        <td>${a.label||a.id}<div class="muted" style="font-size:11px">${a.user_id||''}</div></td>
+        <td>${st}</td><td>${cr}</td>
+        <td>${a.last_checkin_at?ts(a.last_checkin_at):'-'}<div class="muted" style="font-size:11px">${a.last_checkin_msg||''}</div></td>
+        <td>${a.cooldown_until?ts(a.cooldown_until):'-'}</td>
+        <td>
+          <button class="btn sm" onclick="toggleAcc('${a.id}',${!a.enabled})">${a.enabled?'禁用':'启用'}</button>
+          <button class="btn sm" onclick="checkinOne('${a.id}')">签到</button>
+          <button class="btn sm" onclick="queryCredits('${a.id}')">查积分</button>
+          <button class="btn sm" style="color:var(--bad)" onclick="removeAcc('${a.id}')">删除</button>
+        </td></tr>`;
+    }).join('')||'<tr><td colspan="6" class="muted">还没有账号，请先导入</td></tr>';
+  }catch(e){toast('账号加载失败: '+e.message)}
+}
+async function toggleAcc(id,en){await api(`/api/accounts/${id}/toggle`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:en})});toast('已'+(en?'启用':'禁用'));loadAccounts()}
+async function removeAcc(id){if(!confirm('确定删除账号 '+id+'？'))return;await api(`/api/accounts/${id}`,{method:'DELETE'});toast('已删除');loadAccounts()}
+async function checkinOne(id){toast('签到中…');const d=await api(`/api/accounts/${id}/checkin`,{method:'POST'});toast(d.ok?('✔ '+d.message):('✖ '+d.message));loadAccounts()}
+async function queryCredits(id){const d=await api(`/api/accounts/${id}/credits`,{method:'POST'});toast(d.unlimited?'积分：无限':(d.known?`积分：${fmt(d.remaining)} / ${fmt(d.total)}`:'积分：未知'));loadAccounts()}
+async function checkinAll(){toast('后台签到已启动');await api('/api/checkin/all',{method:'POST'})}
+async function importJSON(){
+  try{const d=await api('/api/accounts/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({json:$('#imp-json').value})});
+    toast(`导入完成：新增 ${d.added}，更新 ${d.updated}`);$('#imp-json').value='';loadAccounts();
+  }catch(e){toast('导入失败: '+e.message)}
+}
+async function loginImport(){
+  try{await api('/api/accounts/login',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({phone:$('#lg-phone').value,password:$('#lg-pass').value})});
+    toast('登录导入成功');loadAccounts();
+  }catch(e){toast('登录失败: '+e.message)}
+}
+async function loadRecords(){
+  try{
+    const d=await api('/api/records?limit=100');
+    $('#rec-body').innerHTML=(d.records||[]).map(r=>`<tr>
+      <td>${ts(r.time)}</td><td>${r.model}</td><td>${r.account_id}</td>
+      <td>${Math.round(r.input_tokens)}</td><td>${Math.round(r.output_tokens)}</td>
+      <td>${r.credits==null?'--':fmt(r.credits)}</td>
+      <td>${r.status==='ok'?'<span class="badge b-ok">成功</span>':'<span class="badge b-bad">'+r.status+'</span>'}</td>
+      <td>${(r.duration_ms/1000).toFixed(1)}s</td></tr>`).join('')||'<tr><td colspan="8" class="muted">暂无记录</td></tr>';
+  }catch(e){toast('记录加载失败: '+e.message)}
+}
+async function loadSettings(){
+  try{
+    const s=await api('/api/settings');
+    $('#st-sched').value=s.scheduling;$('#st-checkin').value=s.auto_checkin?'1':'0';
+    $('#st-ctime').value=s.checkin_time;$('#st-update').value=s.auto_update?'1':'0';
+  }catch(e){toast('设置加载失败: '+e.message)}
+}
+async function saveSettings(){
+  try{
+    await api('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      scheduling:$('#st-sched').value,auto_checkin:$('#st-checkin').value==='1',
+      checkin_time:$('#st-ctime').value,auto_update:$('#st-update').value==='1'})});
+    toast('已保存，即时生效');
+  }catch(e){toast('保存失败: '+e.message)}
+}
+async function loadUpdate(){$('#upd-info').textContent='点击「检查更新」查询 GitHub 最新版本';}
+async function checkUpdate(){
+  try{const d=await api('/api/update/check');
+    $('#upd-info').innerHTML=`当前版本：<b>${d.current}</b>｜最新版本：<b>${d.tag||'-'}</b>${d.update?' <span class="badge b-warn">可更新</span>':' <span class="badge b-ok">已是最新</span>'}${d.asset?`<br>资产：${d.asset}（${(d.size/1048576).toFixed(1)} MB）`:''}`;
+  }catch(e){toast('检查失败: '+e.message)}
+}
+async function applyUpdate(){
+  if(!confirm('下载并升级到最新版本？服务将自动重启。'))return;
+  try{await api('/api/update/apply',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    toast('更新任务已启动，完成后自动重启…');
+    const iv=setInterval(async()=>{try{const s=await api('/api/update/status');if(!s.applying){clearInterval(iv);location.reload()}}catch(e){clearInterval(iv);location.reload()}},2000);
+  }catch(e){toast('更新失败: '+e.message)}
+}
+loadOverview();
+setInterval(()=>{if(!$('#tab-overview').classList.contains('hidden'))loadOverview()},30000);
+</script>
+</body>
+</html>

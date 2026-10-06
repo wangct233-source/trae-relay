@@ -1,0 +1,6 @@
+data/
+bin/
+*.exe
+*.old
+.env
+dist/
