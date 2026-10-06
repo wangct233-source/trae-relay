@@ -19,7 +19,6 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -196,17 +195,16 @@ func (u *Updater) Apply(ctx context.Context, version string) (*Release, error) {
 	}
 	// 标记来源为热更新：容器 entrypoint 据此不覆盖卷内二进制
 	_ = os.WriteFile(filepath.Join(u.BinDir, ".trae_source"), []byte("hotupdate"), 0o644)
-	log.Printf("[update] 已更新到 %s，准备重启进程", rel.Tag)
+	log.Printf("[update] 已更新到 %s，进程即将退出以加载新版本（由 restart 策略拉起）", rel.Tag)
 	u.mu.Lock()
 	u.restart = true
 	u.mu.Unlock()
 
-	// 以新二进制原位重启（保持监听端口短暂的 systemd/容器级中断窗口）
-	execPath, _ := os.Executable()
+	// 直接退出交给容器/supervisor 重启：entrypoint 会按 .trae_source=hotupdate
+	// 标记加载卷内新二进制。原位 syscall.Exec 在文件被替换后行为不稳定
+	// （/proc/self/exe 指向已删除 inode），故弃用。
 	go func() {
-		time.Sleep(500 * time.Millisecond) // 让 HTTP 响应先送达
-		_ = syscall.Exec(execPath, os.Args, os.Environ())
-		// Exec 失败则直接退出，交给容器/supervisor 拉起
+		time.Sleep(800 * time.Millisecond) // 让 HTTP 响应先送达
 		os.Exit(0)
 	}()
 	return rel, nil
