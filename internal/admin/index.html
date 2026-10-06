@@ -72,6 +72,14 @@ label.lbl{font-size:13px;color:var(--muted);display:block;margin:8px 0 4px}
       </thead><tbody></tbody></table>
     </div>
     <div class="card">
+      <h3 style="font-size:14px">网页授权登录 <span class="badge b-ok">推荐</span></h3>
+      <p class="muted" style="font-size:12px">弹窗登录 trae.cn 完成授权，凭证自动写入账号池，无需手动抓包。首次使用需在本机运行一次授权助手（Trae 强制回调 127.0.0.1）。</p>
+      <div class="row" style="margin-top:8px">
+        <a class="btn pri" style="text-decoration:none" href="/web/login" target="_blank">打开网页授权</a>
+        <a class="btn" style="text-decoration:none" href="/web/login/download">下载授权助手 start_auth.bat</a>
+      </div>
+    </div>
+    <div class="card">
       <h3 style="font-size:14px">JSON 批量导入</h3>
       <p class="muted" style="font-size:12px">支持对象或数组。字段：token/accessToken、refresh_token、user_id、label、enabled</p>
       <textarea id="imp-json" placeholder='[{"token":"eyJ...","refresh_token":"...","label":"主号"}]'></textarea>

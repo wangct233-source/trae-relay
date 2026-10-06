@@ -27,10 +27,17 @@ jobs:
           go build -trimpath -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" \
             -o dist/trae-relay .
           tar czf trae-relay-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz -C dist trae-relay
+      - name: Build auth helper (windows)
+        if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
+        run: |
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" \
+            -o auth-helper-windows-amd64.exe ./cmd/auth-helper
       - uses: actions/upload-artifact@v4
         with:
           name: trae-relay-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: trae-relay-*.tar.gz
+          path: |
+            trae-relay-*.tar.gz
+            auth-helper-*.exe
 
   release:
     needs: build

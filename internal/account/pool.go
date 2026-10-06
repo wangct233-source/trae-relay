@@ -211,6 +211,22 @@ func (a *Account) mergeFrom(old *Account) {
 	a.CreatedAt = old.CreatedAt
 }
 
+// UpsertWebAuth 网页授权凭证入库：同 ID（userId）覆盖合并，保留既有备注与签到状态。
+func (p *Pool) UpsertWebAuth(acc *Account) error {
+	return p.file.Update(func(m *map[string]*Account) {
+		if old, ok := (*m)[acc.ID]; ok {
+			acc.mergeFrom(old)
+			if acc.Token == "" {
+				acc.Token = old.Token
+			}
+		}
+		if acc.CreatedAt == 0 {
+			acc.CreatedAt = time.Now().Unix()
+		}
+		(*m)[acc.ID] = acc
+	})
+}
+
 // normalizeImport 宽松映射导入字段。
 func normalizeImport(item map[string]any) *Account {
 	str := func(keys ...string) string {

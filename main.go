@@ -94,6 +94,11 @@ func main() {
 	}
 	adminMux := http.NewServeMux()
 	h.Register(adminMux)
+	// 网页授权：/api/web-auth 免管理密码（回调凭证本身即授权凭据），其余 /api/ 走鉴权
+	webAuth := &admin.WebAuthDeps{Pool: pool, Upstream: upstream}
+	mux.HandleFunc("/web/login", webAuth.HandleLoginPage)
+	mux.HandleFunc("/web/login/download", webAuth.HandleLoginDownload)
+	mux.Handle("POST /api/web-auth", http.HandlerFunc(webAuth.HandleWebAuth))
 	mux.Handle("/api/", admin.Auth(cfg.AdminPassword, adminMux))
 	mux.HandleFunc("/admin", admin.Page)
 
