@@ -136,6 +136,19 @@ label.lbl{font-size:13px;color:var(--muted);display:block;margin:8px 0 4px}
   <section id="tab-settings" class="hidden">
     <h2>设置</h2>
     <div class="card">
+      <h3 style="font-size:14px;margin-bottom:10px">API 接入（OpenAI 兼容出口）</h3>
+      <label class="lbl">接口地址 Base URL</label>
+      <div class="row"><input id="ep-url" readonly style="flex:1"><button class="btn sm" onclick="copyVal('ep-url')">复制</button></div>
+      <label class="lbl">API Keys（对话接口鉴权；任一 Key 均可用）</label>
+      <div id="ep-keys"></div>
+      <div class="row" style="margin-top:6px">
+        <button class="btn pri" onclick="genKey()">生成新 Key</button>
+        <span class="muted" style="font-size:12px" id="ep-warn"></span>
+      </div>
+      <label class="lbl">调用示例</label>
+      <div class="row"><textarea id="ep-curl" readonly style="min-height:56px;font-size:12px"></textarea><button class="btn sm" onclick="copyVal('ep-curl')">复制</button></div>
+    </div>
+    <div class="card">
       <label class="lbl">负载调度模式</label>
       <select id="st-sched"><option value="round-robin">顺序轮询</option><option value="credit">积分优先</option></select>
       <label class="lbl">每日自动签到</label>
@@ -345,6 +358,50 @@ async function loadSettings(){
     $('#st-sched').value=s.scheduling;$('#st-checkin').value=s.auto_checkin?'1':'0';
     $('#st-ctime').value=s.checkin_time;$('#st-update').value=s.auto_update?'1':'0';
   }catch(e){toast('设置加载失败: '+e.message)}
+  try{
+    const d=await api('/api/endpoint-info');
+    $('#ep-url').value=d.base_url;
+    $('#ep-curl').value=d.curl_example;
+    renderKeys(d);
+  }catch(e){}
+}
+function renderKeys(d){
+  const box=$('#ep-keys');
+  if(!d.api_keys||!d.api_keys.length){
+    box.innerHTML='<div class="muted" style="font-size:13px;padding:6px 0">暂无 Key —— 对话接口当前<b style="color:var(--bad)">无鉴权</b>（公网部署危险），建议点「生成新 Key」启用</div>';
+    $('#ep-warn').textContent='';
+    return;
+  }
+  box.innerHTML=d.api_keys.map(k=>`<div class="row" style="margin-bottom:4px">
+    <code style="flex:1;background:#eef2f7;padding:6px 10px;border-radius:6px;font-size:12px" data-key="${k.key}" class="keyline">${k.preview}</code>
+    <button class="btn sm" onclick="toggleKeyShow(this)">显示</button>
+    <button class="btn sm" onclick="copyKey('${k.key}')">复制</button>
+    <button class="btn sm" style="color:var(--bad)" onclick="delKey('${k.key}')">删除</button></div>`).join('');
+  $('#ep-warn').textContent=`已启用鉴权（${d.api_keys.length} 个 Key）`;
+}
+function toggleKeyShow(btn){
+  const code=btn.parentElement.querySelector('.keyline');
+  const k=code.dataset.key;
+  if(code.dataset.shown==='1'){code.textContent=k.slice(0,6)+'***'+k.slice(-4);code.dataset.shown='';btn.textContent='显示'}
+  else{code.textContent=k;code.dataset.shown='1';btn.textContent='隐藏'}
+}
+function copyKey(k){navigator.clipboard.writeText(k).then(()=>toast('Key 已复制'),()=>toast('复制失败'))}
+function copyVal(id){const el=$('#'+id);navigator.clipboard.writeText(el.value).then(()=>toast('已复制'),()=>toast('复制失败'))}
+async function genKey(){
+  try{const d=await api('/api/endpoint/generate-key',{method:'POST'});
+    toast('已生成新 Key 并立即生效');
+    const full=d.key;
+    const d2=await api('/api/endpoint-info');
+    renderKeys(d2);
+    // 展示完整 key 一次
+    const codes=document.querySelectorAll('.keyline');
+    for(const c of codes){if(c.dataset.key===full){c.textContent=full;c.dataset.shown='1';c.parentElement.querySelector('button').textContent='隐藏'}}
+  }catch(e){toast('生成失败: '+e.message)}
+}
+async function delKey(k){
+  if(!confirm('删除该 Key？使用它的客户端将立即失效。'))return;
+  try{await api('/api/endpoint/delete-key',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:k})});renderKeys(await api('/api/endpoint-info'))}
+  catch(e){toast('删除失败: '+e.message)}
 }
 async function saveSettings(){
   try{

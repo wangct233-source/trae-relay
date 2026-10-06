@@ -2,6 +2,8 @@ package admin
 
 import (
 	"context"
+	"crypto/rand"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -21,11 +23,15 @@ type Handler struct {
 	Usage    *usage.Tracker
 	Upstream *account.UpstreamClient
 	Updater  *updater.Updater
+	EnvAPIKeys []string // env API_KEYS（与运行时设置合并生效与展示）
 }
 
 // Register 注册全部管理路由（mux 上挂在 /api/ 与 /admin）。
 func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/overview", h.handleOverview)
+	mux.HandleFunc("GET /api/endpoint-info", h.handleEndpointInfo)
+	mux.HandleFunc("POST /api/endpoint/generate-key", h.handleGenerateKey)
+	mux.HandleFunc("POST /api/endpoint/delete-key", h.handleDeleteKey)
 	mux.HandleFunc("GET /api/records", h.handleRecords)
 	mux.HandleFunc("GET /api/accounts", h.handleAccounts)
 	mux.HandleFunc("POST /api/accounts/import", h.handleImport)
@@ -73,6 +79,95 @@ func (h *Handler) handleOverview(w http.ResponseWriter, r *http.Request) {
 		"daily": daily, "total": total,
 		"checkin": h.Checkin.Status(),
 	})
+}
+
+// handleEndpointInfo GET /api/endpoint-info —— 对话 API 接入信息（地址 + Key 列表）。
+func (h *Handler) handleEndpointInfo(w http.ResponseWriter, r *http.Request) {
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	if p := r.Header.Get("X-Forwarded-Proto"); p != "" {
+		scheme = p
+	}
+	base := fmt.Sprintf("%s://%s/v1", scheme, r.Host)
+	merged := mergeKeys(h.EnvAPIKeys, h.Runtime.Get().APIKeys)
+	masked := make([]map[string]any, 0, len(merged))
+	for _, k := range merged {
+		if len(k) > 10 {
+			masked = append(masked, map[string]any{"key": k, "preview": k[:6] + "***" + k[len(k)-4:]})
+		} else {
+			masked = append(masked, map[string]any{"key": k, "preview": k})
+		}
+	}
+	JSON(w, 200, map[string]any{
+		"base_url": base, "api_keys": masked, "auth_required": len(merged) > 0,
+		"curl_example": fmt.Sprintf(`curl %s/chat/completions -H "Authorization: Bearer <KEY>" -H "Content-Type: application/json" -d '{"model":"auto","messages":[{"role":"user","content":"hi"}]}'`, base),
+	})
+}
+
+// handleGenerateKey POST /api/endpoint/generate-key —— 生成随机 Key 并存入运行时设置。
+func (h *Handler) handleGenerateKey(w http.ResponseWriter, r *http.Request) {
+	raw := make([]byte, 24)
+	if _, err := rand.Read(raw); err != nil {
+		JSON(w, 500, map[string]any{"error": err.Error()})
+		return
+	}
+	key := "sk-" + hexEncode(raw)
+	st := h.Runtime.Get()
+	st.APIKeys = mergeKeys(st.APIKeys, []string{key})
+	if err := h.Runtime.Set(st); err != nil {
+		JSON(w, 500, map[string]any{"error": err.Error()})
+		return
+	}
+	JSON(w, 200, map[string]any{"success": true, "key": key, "api_keys": st.APIKeys})
+}
+
+// handleDeleteKey POST /api/endpoint/delete-key {key}
+func (h *Handler) handleDeleteKey(w http.ResponseWriter, r *http.Request) {
+	m, err := body(r)
+	if err != nil {
+		JSON(w, 400, map[string]any{"error": err.Error()})
+		return
+	}
+	key := str(m, "key")
+	st := h.Runtime.Get()
+	out := st.APIKeys[:0]
+	for _, k := range st.APIKeys {
+		if k != key {
+			out = append(out, k)
+		}
+	}
+	st.APIKeys = out
+	if err := h.Runtime.Set(st); err != nil {
+		JSON(w, 500, map[string]any{"error": err.Error()})
+		return
+	}
+	JSON(w, 200, map[string]any{"success": true, "api_keys": st.APIKeys})
+}
+
+func mergeKeys(lists ...[]string) []string {
+	seen := map[string]bool{}
+	out := []string{}
+	for _, l := range lists {
+		for _, k := range l {
+			if k != "" && !seen[k] {
+				seen[k] = true
+				out = append(out, k)
+			}
+		}
+	}
+	return out
+}
+
+func hexEncode(b []byte) string {
+	const hex = "0123456789abcdef"
+	out := make([]byte, len(b)*2)
+	for i, v := range b {
+		out[i*2] = hex[v>>4]
+		out[i*2+1] = hex[v&15]
+	}
+	return string(out)
 }
 
 func (h *Handler) handleRecords(w http.ResponseWriter, r *http.Request) {

@@ -12,10 +12,11 @@ import (
 
 // Settings 运行时可变设置（控制台修改即时生效，持久化到 settings.json）。
 type Settings struct {
-	Scheduling   string `json:"scheduling"`    // round-robin | credit
-	AutoCheckin  bool   `json:"auto_checkin"`
-	CheckinTime  string `json:"checkin_time"`
-	AutoUpdate   bool   `json:"auto_update"`
+	Scheduling  string   `json:"scheduling"`     // round-robin | credit
+	AutoCheckin bool     `json:"auto_checkin"`
+	CheckinTime string   `json:"checkin_time"`
+	AutoUpdate  bool     `json:"auto_update"`
+	APIKeys     []string `json:"api_keys"`       // 对话 API 密钥（运行时可配，与 env 合并生效）
 }
 
 // Runtime 全局运行时设置句柄。

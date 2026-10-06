@@ -82,15 +82,16 @@ func main() {
 			"scheduling": rt.Get().Scheduling,
 		})
 	})
-	mux.Handle("GET /v1/models", authAPI(cfg, http.HandlerFunc(svc.HandleModels)))
-	mux.Handle("POST /v1/chat/completions", authAPI(cfg, http.HandlerFunc(svc.HandleChat)))
-	mux.Handle("POST /v1/chat", authAPI(cfg, http.HandlerFunc(svc.HandleChat)))
-	mux.Handle("POST /chat/completions", authAPI(cfg, http.HandlerFunc(svc.HandleChat)))
+	mux.Handle("GET /v1/models", authAPI(cfg, rt, http.HandlerFunc(svc.HandleModels)))
+	mux.Handle("POST /v1/chat/completions", authAPI(cfg, rt, http.HandlerFunc(svc.HandleChat)))
+	mux.Handle("POST /v1/chat", authAPI(cfg, rt, http.HandlerFunc(svc.HandleChat)))
+	mux.Handle("POST /chat/completions", authAPI(cfg, rt, http.HandlerFunc(svc.HandleChat)))
 
 	// 管理面：/admin 静态页放行（登录由页面内遮罩完成），/api/ 由 Auth 保护
 	h := &admin.Handler{
 		Pool: pool, Runtime: rt, Checkin: sched, Service: svc,
 		Usage: tracker, Upstream: upstream, Updater: updates,
+		EnvAPIKeys: cfg.APIKeys,
 	}
 	adminMux := http.NewServeMux()
 	h.Register(adminMux)
@@ -146,13 +147,16 @@ func main() {
 	log.Println("trae-relay 已停止")
 }
 
-// authAPI OpenAI 出口鉴权（API_KEYS 为空则放行，建议内网部署）。
-func authAPI(cfg *config.Config, next http.Handler) http.Handler {
+// authAPI OpenAI 出口鉴权：env API_KEYS 与控制台运行时 APIKeys 合并生效；
+// 两者皆为空则放行（建议内网部署或尽快在控制台配置 Key）。
+func authAPI(cfg *config.Config, rt *admin.Runtime, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if len(cfg.APIKeys) > 0 {
+		keys := append([]string{}, cfg.APIKeys...)
+		keys = append(keys, rt.Get().APIKeys...)
+		if len(keys) > 0 {
 			key := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 			ok := false
-			for _, k := range cfg.APIKeys {
+			for _, k := range keys {
 				if key == k {
 					ok = true
 					break
