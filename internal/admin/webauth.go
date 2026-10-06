@@ -17,8 +17,9 @@ type WebAuthDeps struct {
 	Upstream *account.UpstreamClient
 }
 
-// webAuthCreds 本机助手转发的凭证（对照 trae2api-cn parse_oauth_params 输出）。
+// webAuthCreds 凭证入参：本机助手转发 JSON，或手动粘贴回调链接（callback_url）。
 type webAuthCreds struct {
+	CallbackURL  string `json:"callback_url"`
 	Token        string `json:"token"`
 	RefreshToken string `json:"refreshToken"`
 	UserID       string `json:"userId"`
@@ -33,7 +34,8 @@ func jsonDecodeBody(r *http.Request, v any) error {
 	return json.NewDecoder(http.MaxBytesReader(nil, r.Body, 8<<20)).Decode(v)
 }
 
-// HandleWebAuth POST /api/web-auth —— 接收本机助手转发的授权凭证并入池。
+// HandleWebAuth POST /api/web-auth —— 授权凭证入池。
+// 两种入参：① 本机助手转发的凭证 JSON；② 手动粘贴的完整回调链接 {callback_url}。
 // 免管理密码：能出示有效回调凭证本身即代表完成了 Trae 登录授权。
 func (d *WebAuthDeps) HandleWebAuth(w http.ResponseWriter, r *http.Request) {
 	var c webAuthCreds
@@ -41,8 +43,23 @@ func (d *WebAuthDeps) HandleWebAuth(w http.ResponseWriter, r *http.Request) {
 		JSON(w, 400, map[string]any{"success": false, "error": "请求体解析失败: " + err.Error()})
 		return
 	}
+	// 手动粘贴模式：解析回调链接里的 query
+	if c.Token == "" && c.RefreshToken == "" && c.CallbackURL != "" {
+		parsed, err := account.ParseCallbackURL(c.CallbackURL)
+		if err != nil {
+			JSON(w, 400, map[string]any{"success": false, "error": "回调链接解析失败: " + err.Error()})
+			return
+		}
+		c.Token = parsed["token"]
+		c.RefreshToken = parsed["refreshToken"]
+		c.UserID = orDefault(c.UserID, parsed["userId"])
+		c.ScreenName = orDefault(c.ScreenName, parsed["screenName"])
+		c.Region = orDefault(c.Region, parsed["region"])
+		c.ClientID = orDefault(c.ClientID, parsed["clientId"])
+		c.Host = orDefault(c.Host, parsed["host"])
+	}
 	if c.Token == "" && c.RefreshToken == "" {
-		JSON(w, 400, map[string]any{"success": false, "error": "缺少 token/refreshToken"})
+		JSON(w, 400, map[string]any{"success": false, "error": "缺少 token/refreshToken/callback_url"})
 		return
 	}
 	// 老流程：只有 refreshToken，向 Trae 兑换 Cloud-IDE-JWT

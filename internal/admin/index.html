@@ -73,11 +73,20 @@ label.lbl{font-size:13px;color:var(--muted);display:block;margin:8px 0 4px}
     </div>
     <div class="card">
       <h3 style="font-size:14px">网页授权登录 <span class="badge b-ok">推荐</span></h3>
-      <p class="muted" style="font-size:12px">弹窗登录 trae.cn 完成授权，凭证自动写入账号池，无需手动抓包。首次使用需在本机运行一次授权助手（Trae 强制回调 127.0.0.1）。</p>
+      <p class="muted" style="font-size:12px">无需抓包、无需密码。方式一全自动（需本机助手）；方式二手动粘贴回调链接，任何设备都能用。</p>
       <div class="row" style="margin-top:8px">
-        <a class="btn pri" style="text-decoration:none" href="/web/login" target="_blank">打开网页授权</a>
-        <a class="btn" style="text-decoration:none" href="/web/login/download">下载授权助手 start_auth.bat</a>
+        <a class="btn pri" style="text-decoration:none" href="/web/login" target="_blank">方式一：本机助手（全自动）</a>
+        <a class="btn" style="text-decoration:none" href="/web/login/download">下载助手 start_auth.bat</a>
       </div>
+      <div style="border-top:1px solid var(--line);margin:12px 0"></div>
+      <h3 style="font-size:14px">方式二：手动粘贴回调链接</h3>
+      <ol class="muted" style="font-size:12px;line-height:1.8;margin:6px 0 8px 18px">
+        <li><a href="#" id="open-auth-link" onclick="openAuthPage();return false">点此打开 Trae 授权页</a>（新窗口）并登录</li>
+        <li>登录后浏览器会跳到 <code>127.0.0.1:18080/authorize?...</code> 并提示<b>无法访问</b> —— 这是正常的，凭证就在地址栏里</li>
+        <li>复制地址栏<b>完整链接</b>粘贴到下面，点「导入」</li>
+      </ol>
+      <textarea id="cb-url" style="min-height:64px" placeholder="http://127.0.0.1:18080/authorize?userJwt=...&userInfo=..."></textarea>
+      <div class="row" style="margin-top:8px"><button class="btn pri" onclick="importCallback()">导入回调链接</button></div>
     </div>
     <div class="card">
       <h3 style="font-size:14px">JSON 批量导入</h3>
@@ -236,6 +245,25 @@ async function checkinAll(){toast('后台签到已启动');await api('/api/check
 async function importJSON(){
   try{const d=await api('/api/accounts/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({json:$('#imp-json').value})});
     toast(`导入完成：新增 ${d.added}，更新 ${d.updated}`);$('#imp-json').value='';loadAccounts();
+  }catch(e){toast('导入失败: '+e.message)}
+}
+function openAuthPage(){
+  const cb='http://127.0.0.1:18080/authorize';
+  const hex=n=>Array.from(crypto.getRandomValues(new Uint8Array(n)),b=>b.toString(16).padStart(2,'0')).join('');
+  let did='';while(did.length<19)did+=Math.floor(Math.random()*1e10).toString();
+  const p=new URLSearchParams({login_version:'1',auth_from:'solo',login_channel:'native_ide',plugin_version:'2.3.24254',
+    auth_type:'local',client_id:'ono9krqynydwx5',redirect:'0',login_trace_id:crypto.randomUUID(),
+    auth_callback_url:cb,machine_id:hex(32),device_id:did,x_device_id:did,x_machine_id:hex(32),
+    x_device_brand:'Mac14,7',x_device_type:'mac',x_os_version:'macOS 26.4.1',x_env:'',
+    x_app_version:'0.1.7',x_app_type:'stable',hide_saas_login:'true'});
+  window.open('https://www.trae.cn/authorization?'+p.toString(),'trae-oauth','width=560,height=760');
+  toast('登录完成后复制地址栏链接粘贴回来');
+}
+async function importCallback(){
+  const u=$('#cb-url').value.trim();
+  if(!u){toast('请先粘贴回调链接');return}
+  try{const d=await api('/api/web-auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({callback_url:u})});
+    toast(`✅ 已导入账号 ${d.id}（${d.label||''}）`);$('#cb-url').value='';loadAccounts();
   }catch(e){toast('导入失败: '+e.message)}
 }
 async function loginImport(){
