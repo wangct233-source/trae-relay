@@ -43,7 +43,7 @@ label.lbl{font-size:13px;color:var(--muted);display:block;margin:8px 0 4px}
 </head>
 <body>
 <nav>
-  <div class="logo">trae-relay <span id="upd-badge" class="badge b-warn" style="display:none;cursor:pointer" onclick="openUpdModal()">⬆ 可更新</span></div>
+  <div class="logo">trae-relay <span id="upd-badge" class="badge b-mute" style="cursor:pointer" onclick="openUpdModal()">检查中…</span></div>
   <a data-tab="overview" class="on">📊 概览</a>
   <a data-tab="accounts">👥 账号池</a>
   <a data-tab="records">🧾 消费记录</a>
@@ -51,7 +51,7 @@ label.lbl{font-size:13px;color:var(--muted);display:block;margin:8px 0 4px}
   <div class="nav-bottom">
     <a href="https://qm.qq.com/q/xHtxPNo5qM" target="_blank" rel="noopener">💬 交流群 539858079</a>
     <a href="https://github.com/wangct233-source" target="_blank" rel="noopener">🐙 作者主页</a>
-    <a href="javascript:void(0)" onclick="showTip()">💝 打赏作者</a>
+    <a href="javascript:void(0)" id="tip-btn">💝 打赏作者</a>
   </div>
   <div class="footer">
     <div>© 2026 · 智云-wangct233</div>
@@ -185,8 +185,8 @@ label.lbl{font-size:13px;color:var(--muted);display:block;margin:8px 0 4px}
     <h3 style="margin-bottom:4px">💝 打赏作者</h3>
     <p class="muted" style="font-size:12px;margin-bottom:12px">项目完全开源免费，你的打赏是更新的动力～ 微信赞赏 / 支付宝扫码</p>
     <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
-      <figure style="text-align:center"><img src="/assets/tip-wechat.jpg" alt="微信赞赏码" style="width:220px;border-radius:8px;border:1px solid var(--line)"><figcaption class="muted" style="font-size:12px">微信赞赏码</figcaption></figure>
-      <figure style="text-align:center"><img src="/assets/tip-alipay.jpg" alt="支付宝收款码" style="width:220px;border-radius:8px;border:1px solid var(--line)"><figcaption class="muted" style="font-size:12px">支付宝</figcaption></figure>
+      <figure style="text-align:center"><img src="/assets/tip-wechat.jpg" alt="微信赞赏码" width="220" height="220" style="width:220px;height:220px;object-fit:contain;border-radius:8px;border:1px solid var(--line);background:#fff" onerror="this.parentElement.querySelector('figcaption').textContent='图片加载失败'"><figcaption class="muted" style="font-size:12px">微信赞赏码</figcaption></figure>
+      <figure style="text-align:center"><img src="/assets/tip-alipay.jpg" alt="支付宝收款码" width="220" height="220" style="width:220px;height:220px;object-fit:contain;border-radius:8px;border:1px solid var(--line);background:#fff" onerror="this.parentElement.querySelector('figcaption').textContent='图片加载失败'"><figcaption class="muted" style="font-size:12px">支付宝</figcaption></figure>
     </div>
   </div>
 </div>
@@ -233,6 +233,12 @@ async function tryAutoLogin(){
 tryAutoLogin();
 checkUpdateBadge();
 setInterval(checkUpdateBadge, 600000); // 每 10 分钟自动检测更新
+document.getElementById('tip-btn').addEventListener('click', function(){
+  document.getElementById('tip-mask').style.display = 'flex';
+});
+document.getElementById('tip-mask').addEventListener('click', function(ev){
+  if (ev.target === this) { this.style.display = 'none'; }
+});
 document.querySelectorAll('nav a').forEach(a=>a.onclick=()=>{
   document.querySelectorAll('nav a').forEach(x=>x.classList.remove('on'));a.classList.add('on');
   document.querySelectorAll('main section').forEach(s=>s.classList.add('hidden'));
@@ -246,12 +252,16 @@ async function checkUpdateBadge(){
   try{
     const st=await fetch('/v1/status').then(r=>r.json());
     $('#ft-ver').textContent=st.version||'-';
-    if(!AUTH)return; // 未登录时不探测更新
+    const badge=$('#upd-badge');
+    if(!AUTH){badge.textContent='⬇ 检查更新';badge.className='badge b-mute';return}
     const d=await api('/api/update/check');
     const has=d.tag&&d.current&&d.tag!==d.current;
-    $('#upd-badge').style.display=has?'inline-block':'none';
-    if(has)$('#upd-badge').textContent='⬆ '+d.tag;
-  }catch(e){}
+    if(has){badge.textContent='⬆ '+d.tag;badge.className='badge b-warn'}
+    else{badge.textContent='✓ 最新 '+d.current;badge.className='badge b-ok'}
+  }catch(e){
+    const badge=$('#upd-badge');
+    badge.textContent='⬇ 检查更新';badge.className='badge b-mute';
+  }
 }
 function ts(t){return t?new Date(t*1000).toLocaleString('zh-CN'):'-'}
 
@@ -411,6 +421,7 @@ async function saveSettings(){
     toast('已保存，即时生效');
   }catch(e){toast('保存失败: '+e.message)}
 }
+function showTip(){document.getElementById('tip-mask').style.display='flex'}
 function openUpdModal(){$('#upd-modal').style.display='flex';$('#upd-info').textContent='点击「检查更新」查询 GitHub 最新版本'}
 function closeUpdModal(){$('#upd-modal').style.display='none'}
 async function checkUpdate(){
