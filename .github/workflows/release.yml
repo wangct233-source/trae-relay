@@ -48,7 +48,9 @@ jobs:
         with: { merge-multiple: true, path: dist }
       - uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.tar.gz
+          files: |
+            dist/*.tar.gz
+            dist/*.exe
           generate_release_notes: true
 
   docker:
