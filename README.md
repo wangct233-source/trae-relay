@@ -115,7 +115,7 @@ internal/updater/        GitHub Releases 热更新
 
 ## 交流与支持
 
-- 交流群（QQ）：**1071892426**（[一键加群](https://qm.qq.com/q/xHtxPNo5qM)）
+- 交流群（QQ）：**1071892426** · [开源交流群](https://qm.qq.com/q/XcS6Sh8NYA)（点击加入）
 - 作者主页：https://github.com/wangct233-source
 - 项目完全开源免费，**收费的都是骗子**；觉得有用欢迎 [打赏](/admin) 支持～
 
