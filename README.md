@@ -113,6 +113,12 @@ internal/updater/        GitHub Releases 热更新
 | 上游通道 | 1 条（remote，最稳） | 6 条可切换 |
 | 定位 | 低占用、易部署、易维护 | 功能全面 |
 
+## 交流与支持
+
+- 交流群（QQ）：**1071892426**（[一键加群](https://qm.qq.com/q/xHtxPNo5qM)）
+- 作者主页：https://github.com/wangct233-source
+- 项目完全开源免费，**收费的都是骗子**；觉得有用欢迎 [打赏](/admin) 支持～
+
 ## 免责
 
 仅供学习研究。上游为非公开协议，随 Trae 更新可能失效；使用产生的一切后果由使用者自行承担，请遵守 Trae 服务条款。
